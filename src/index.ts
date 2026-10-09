@@ -2,9 +2,9 @@ import { execFile } from 'node:child_process';
 import { existsSync, readFileSync, writeSync } from 'node:fs';
 import { join } from 'node:path';
 import { hostname } from 'node:os';
-import { getSupportedThinkingLevels } from '@earendil-works/pi-ai';
-import type { AgentMessage } from '@earendil-works/pi-agent-core';
-import { parseSkillBlock, type ExtensionAPI, type ExtensionContext, type ExtensionCommandContext } from '@earendil-works/pi-coding-agent';
+import { getSupportedThinkingLevels } from '@oh-my-pi/pi-ai';
+import type { AgentMessage } from '@oh-my-pi/pi-agent-core';
+import type { ExtensionAPI, ExtensionContext, ExtensionCommandContext } from '@oh-my-pi/pi-coding-agent';
 import { Type } from 'typebox';
 import { Memory } from './memory.ts';
 import { atomicWrite, storeFor } from './store.ts';
@@ -13,10 +13,10 @@ import { createProfile, holdProfile, instructions, isWindows, lastProfile, listP
 import { allowSearch, CONTINUITY, IMPORT_GUIDANCE, MASTER, SEARCH_DOC, VIEW_DOC } from './prompts.ts';
 import { cachePayload, record } from './cache.ts';
 import { saveImages } from './images.ts';
-import { asUser, boundedMessage, atWork, buildContext, logMessage, previousExchange, reportReceipt, REPORT_RECEIPT, REPORT_TYPE, RUN_BOUNDARY, textContent, typedText } from './transcript.ts';
+import { asUser, boundedMessage, atWork, buildContext, logMessage, previousExchange, reportReceipt, REPORT_RECEIPT, REPORT_TYPE, RUN_BOUNDARY, skillInvocation, textContent, typedText } from './transcript.ts';
 import { registerReportRenderer, type ReportDetails } from './report-message.ts';
 import { memoryTools, result, searchTool } from './tools.ts';
-import { Children, CWD_DOC, loadedBuiltins } from './agents.ts';
+import { Children, CWD_DOC } from './agents.ts';
 import { exportBrowser } from './browser.ts';
 import { Inbox } from './inbox.ts';
 import { checkpoint } from './checkpoint.ts';
@@ -42,10 +42,6 @@ async function printReply(text: string) {
     catch (error) { if (!record(error) || error.code !== 'EAGAIN') throw error; await new Promise(resolve => setTimeout(resolve, 10)); }
   }
 }
-const toggle = (prompt: string, line: string, on: boolean, after: string) => on === prompt.includes(line) ? prompt : on ? prompt.replace(after, after + line) : prompt.replace(line, '');
-/** A report run while idle reuses the last built prompt, so Previous exchange and Memory search changes since then are applied here. */
-const promptFor = (prompt: string, { previousExchange, memorySearch }: ProfileConfig) =>
-  allowSearch(toggle(toggle(prompt, CONTINUITY, previousExchange, VIEW_DOC), SEARCH_DOC, memorySearch, previousExchange ? VIEW_DOC + CONTINUITY : VIEW_DOC), memorySearch);
 interface Active { name: string; dir: string; config: ProfileConfig; memory: Memory; inbox: Inbox; children: Children; usage: UsageLedger; unlock: () => Promise<void> }
 
 export default function optchat(pi: ExtensionAPI) {
@@ -132,7 +128,7 @@ export default function optchat(pi: ExtensionAPI) {
     const { text, count } = report;
     report.steered = !idle();
     if (prompt) pi.sendMessage<ReportDetails>({ customType: REPORT_TYPE, content: text, display: true, details: { count } }, { triggerTurn: true, deliverAs: 'steer' });
-    else pi.sendUserMessage(text, { deliverAs: 'steer', expandPromptTemplates: false });
+    else pi.sendUserMessage(text, { deliverAs: 'steer' });
   };
   const deliverReport = async (text: string, { once = false, count }: { once?: boolean; count?: number } = {}) => {
     if (once && (active?.memory.root.some(e => e.receipt === reportReceipt(text)) || reports.some(r => r.text === text))) return;
@@ -196,7 +192,7 @@ export default function optchat(pi: ExtensionAPI) {
       const recovered = pendingImport(dir) ? 0 : inbox.recover(memory);
       if (recovered) ctx.ui.notify(`Recovered ${recovered} unanswered inputs into ${name}'s memory. Ask to continue them when ready.`, 'info');
       const children = new Children(memory, ctx.modelRegistry, () => config.subagent, () => `${instructions(dir)}\n\n${IMPORT_GUIDANCE}`,
-        deliverReport, text => ctx.ui.notify(text, 'error'), dir, { parentSession: sessionId, usage, builtins: () => loadedBuiltins(pi), settings: () => config, hold: holdReports,
+        deliverReport, text => ctx.ui.notify(text, 'error'), dir, { parentSession: sessionId, usage, settings: () => config, hold: holdReports,
           summarizeHandoff: createHandoffSummarizer(ctx.modelRegistry, () => config.compactor, message => usage.compression(message, 'compactor', sessionId)) });
       const loggedReports = new Set(memory.root.map(e => e.receipt));
       // Reports a crash held back with their unfinished siblings are delivered now, as they are.
@@ -270,36 +266,35 @@ export default function optchat(pi: ExtensionAPI) {
     // Pi sets its own title once every session_start handler has finished, so put ours back afterwards.
     for (const ms of [0, 250, 1000]) setTimeout(() => title.reapply(), ms).unref();
   });
-  pi.on('session_info_changed', () => title.reapply()); // Pi retitles the tab on session renames, just before this.
   pi.on('session_shutdown', stop);
   pi.on('session_before_switch', () => remote || importing || active?.children.active ? { cancel: true } : undefined);
-  pi.on('session_before_fork', () => remote || importing || active?.children.active ? { cancel: true } : undefined);
+  pi.on('session_before_branch', () => remote || importing || active?.children.active ? { cancel: true } : undefined);
   pi.on('input', async (event, ctx) => {
     if (joined) {
       try {
         if (event.images?.length) throw new Error('Joining a running profile accepts text only; provide a file path for the agent to read.');
         await printReply(await joined.ask(event.text, ctx.cwd));
       } catch (error) { process.stderr.write(`OptChat: ${errorText(error)}\n`); process.exitCode = 1; }
-      return { action: 'handled' };
+      return { handled: true };
     }
     if (remote) {
       try {
         if (event.images?.length) throw new Error('Connected windows currently accept text only; provide a file path for the agent to read.');
         await remote.submit(event.text);
       } catch (error) { ctx.ui.notify(errorText(error), 'error'); ctx.ui.setEditorText(event.text); }
-      return { action: 'handled' };
+      return { handled: true };
     }
     if (!active) {
       // Without a profile or flag, a headless run is plain Pi. A requested profile that failed to open refuses instead of running without memory.
-      if (ctx.mode !== 'tui' && !fault) return { action: 'continue' };
-      ctx.ui.notify(fault ?? 'Select a profile with /optchat profile before chatting.', 'error'); return { action: 'handled' };
+      if (ctx.mode !== 'tui' && !fault) return undefined;
+      ctx.ui.notify(fault ?? 'Select a profile with /optchat profile before chatting.', 'error'); return { handled: true };
     }
-    if (importing || pendingImport(active.dir)) { ctx.ui.notify('This profile has an import in progress. Use /optchat import to resume or discard it, or switch profiles.', 'info'); return { action: 'handled' }; }
+    if (importing || pendingImport(active.dir)) { ctx.ui.notify('This profile has an import in progress. Use /optchat import to resume or discard it, or switch profiles.', 'info'); return { handled: true }; }
     if (event.source !== 'extension') {
-      try { active.inbox.record(event.text, event.streamingBehavior !== undefined); }
-      catch (error) { ctx.ui.notify(`Could not save input: ${errorText(error)}`, 'error'); return { action: 'handled' }; }
+      try { active.inbox.record(event.text, !ctx.isIdle()); }
+      catch (error) { ctx.ui.notify(`Could not save input: ${errorText(error)}`, 'error'); return { handled: true }; }
     }
-    return { action: 'continue' };
+    return undefined;
   });
   const startRun = (ctx: ExtensionContext) => {
     flush(); run = []; logged = 0; view = undefined; runStarted = true;
@@ -313,19 +308,19 @@ export default function optchat(pi: ExtensionAPI) {
     if (active && !runStarted) startRun(ctx);
   });
   pi.on('before_agent_start', (event, ctx) => {
-    if (!active) return; // Plain Pi run: leave Pi's own prompt untouched.
+    if (!active) return undefined; // Plain Pi run: leave Pi's own prompt untouched.
     startRun(ctx);
     const a = required();
-    // Pi's own prompt sections (AGENTS.md files, skills, cwd) stay; the profile's instructions go last.
+    // omp's own prompt (AGENTS.md files, skills, cwd) stays; the profile's preamble and instructions follow it.
     syncSearch(a.config);
-    event.systemPromptOptions.customPrompt = allowSearch(`${MASTER}\n\n${VIEW_DOC}${a.config.previousExchange ? CONTINUITY : ''}${a.config.memorySearch ? SEARCH_DOC : ''}`, a.config.memorySearch);
-    event.systemPromptOptions.sections.instructions = `${instructions(a.dir)}\n\n${IMPORT_GUIDANCE}`;
-    prompt = event.systemPrompt;
+    const preamble = allowSearch(`${MASTER}\n\n${VIEW_DOC}${a.config.previousExchange ? CONTINUITY : ''}${a.config.memorySearch ? SEARCH_DOC : ''}`, a.config.memorySearch);
+    const systemPrompt = [...event.systemPrompt, preamble, `${instructions(a.dir)}\n\n${IMPORT_GUIDANCE}`];
+    prompt = systemPrompt.join('\n\n');
+    return { systemPrompt };
   });
-  const DUPLICATE_REPORT = '(duplicate report, already delivered)';
-  pi.on('message_end', async (event, ctx) => {
+  const ingest = async (source: AgentMessage, ctx: ExtensionContext) => {
     if (!active || !runStarted) return;
-    const bounded = boundedMessage(event.message);
+    const bounded = boundedMessage(source);
     const message = asUser(bounded);
     // Before the message is logged, so the image its text names is already there for zoom; zoom's own images are kept already.
     if (message.role === 'user' || message.role === 'toolResult' && message.toolName !== 'zoom') {
@@ -341,12 +336,13 @@ export default function optchat(pi: ExtensionAPI) {
           // A report sent again after a lost steer can still arrive twice (Pi kept the old steer after an abort): drop the extra copy.
           // Copies are counted, so a later report that happens to repeat an earlier text still arrives.
           const receipt = reportReceipt(text), copies = run.slice(logged).filter(m => receipts.get(m) === receipt).length;
+          // omp cannot swap a finished message for another, so a duplicate stays on screen but is kept out of memory and the model's context.
           if (reports.filter(r => !r.batch && r.text === text).length <= copies && (copies > 0 || active.memory.root.some(e => e.receipt === receipt)))
-            return { message: bounded.role === 'custom' ? { ...bounded, content: DUPLICATE_REPORT, display: false } : { ...message, content: DUPLICATE_REPORT } };
+            return;
           receipts.set(message, receipt);
         } else {
           // The inbox journaled the typed input: match without image references or Pi's image notes.
-          const typed = typedText(message.content), skill = parseSkillBlock(typed.bare);
+          const typed = typedText(message.content), skill = skillInvocation(bounded, typed.bare);
           let receipt = active.inbox.claim(typed.text) ?? active.inbox.claim(typed.bare)
             ?? (skill ? active.inbox.claimSkill(skill.name, skill.userMessage) : undefined);
           if (!receipt) { active.inbox.record(text); receipt = active.inbox.claim(text); }
@@ -358,11 +354,11 @@ export default function optchat(pi: ExtensionAPI) {
     if (view !== undefined) {
       try { flush(); } catch (error) { ctx.abort(); fault = errorText(error); ctx.ui.notify(fault, 'error'); }
     }
-    if (bounded !== event.message) return { message: bounded };
-  });
-  pi.on('context_with_system', async (event, ctx) => {
+  };
+  pi.on('message_end', (event, ctx) => ingest(event.message, ctx));
+  pi.on('context', async (event, ctx) => {
     try {
-      if (!active) return; // Plain Pi run: pass context through unmodified.
+      if (!active) return undefined; // Plain Pi run: pass context through unmodified.
       const a = required();
       if (importing || pendingImport(a.dir)) throw new Error('Profile is unavailable while importing.');
       if (fault) throw new Error(fault);
@@ -380,8 +376,12 @@ export default function optchat(pi: ExtensionAPI) {
         view = a.memory.render(); // Capture old history before logging the new input.
         flush();
       }
+      // omp sends a turn's new message (its prompt, a steer or a report) to `context` before `message_end` logs it: the model gets it now.
+      const latest = event.messages.at(-1);
+      const pending = latest && (latest.role === 'user' || latest.role === 'custom') && !run.some(m => (m as { timestamp?: number }).timestamp === latest.timestamp)
+        ? [asUser(boundedMessage(latest))] : [];
       // Built on every call, unlike the view, so it is never out of date; it goes last, after everything cached.
-      return { messages: buildContext(event.messages, run, view, promptFor(prompt, a.config), previous, atWork(a.children.working)) };
+      return { messages: buildContext([...run, ...pending], view, previous, atWork(a.children.working)) };
     } catch (error) {
       // Pi catches extension errors. Explicitly abort so it cannot fall back to old context.
       ctx.abort();
@@ -401,7 +401,7 @@ export default function optchat(pi: ExtensionAPI) {
     catch (error) { ctx.ui.notify(`Could not save usage: ${errorText(error)}`, 'error'); }
   };
   pi.on('turn_end', (_event, ctx) => collectUsage(ctx));
-  pi.on('agent_settled', async (_event, ctx) => {
+  pi.on('agent_end', async (_event, ctx) => {
     collectUsage(ctx);
     try { flush(); active?.inbox.dropReturned(); } catch (error) { fault = errorText(error); ctx.ui.notify(fault, 'error'); }
     // A report steered into this run that never reached it (Esc or a dequeue cleared Pi's queue) is sent again, now as its own turn.
@@ -419,7 +419,7 @@ export default function optchat(pi: ExtensionAPI) {
   registerReportRenderer(pi);
   const [zoom, date] = memoryTools(() => required().memory, id => required().children.transcript(id));
   pi.registerTool(zoom); pi.registerTool(date);
-  pi.registerTool({ ...searchTool(() => required().memory), defaultActive: false });
+  pi.registerTool({ ...searchTool(() => required().memory), defaultInactive: true });
   // The tool and its prompt line change together, once per toggle, so the cached prefix is otherwise stable.
   // Synced on save too: a report turn started while idle reuses the tool set without before_agent_start.
   const syncSearch = ({ memorySearch }: ProfileConfig) => {

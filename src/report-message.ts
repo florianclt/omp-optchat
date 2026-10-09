@@ -1,5 +1,5 @@
-import { getMarkdownTheme, type ExtensionAPI, type Theme } from '@earendil-works/pi-coding-agent';
-import { Box, Markdown, Text } from '@earendil-works/pi-tui';
+import { getMarkdownTheme, type ExtensionAPI, type Theme } from '@oh-my-pi/pi-coding-agent';
+import { Box, Markdown, Text } from '@oh-my-pi/pi-tui';
 import { REPORT_TYPE, textContent, withoutFullChat } from './transcript.ts';
 
 const HEAD = /^\[([0-9a-f]{8})\] (?:(Message from subagent \(still running\)|Connected agent message): )?/;

@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import type { AgentMessage } from '@earendil-works/pi-agent-core';
+import type { AgentMessage } from '@oh-my-pi/pi-agent-core';
 import { atWork, buildContext } from '../src/transcript.ts';
 import { cachePayload } from '../src/cache.ts';
 import { MASTER } from '../src/prompts.ts';

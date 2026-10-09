@@ -1,7 +1,7 @@
 import { chmodSync } from 'node:fs';
 import { createConnection, createServer, type Socket } from 'node:net';
 import type { Children } from './agents.ts';
-import type { AgentMessage } from '@earendil-works/pi-agent-core';
+import type { AgentMessage } from '@oh-my-pi/pi-agent-core';
 import { record } from './cache.ts';
 import { checkSocketPath, isWindows, profileSocket, removeStaleSocket } from './profiles.ts';
 import { textContent } from './transcript.ts';

@@ -1,7 +1,7 @@
-import type { ModelRegistry } from '@earendil-works/pi-coding-agent';
-import type { AgentMessage } from '@earendil-works/pi-agent-core';
-import type { AssistantMessage } from '@earendil-works/pi-ai';
-import { reasoningFor, type ModelChoice } from './compactor.ts';
+import type { ModelRegistry } from '@oh-my-pi/pi-coding-agent';
+import type { AgentMessage } from '@oh-my-pi/pi-agent-core';
+import type { AssistantMessage } from '@oh-my-pi/pi-ai';
+import { reasoningFor, streamWithRegistry, type ModelChoice } from './compactor.ts';
 import { HANDOFF } from './prompts.ts';
 import type { RunInfo } from './runs.ts';
 import { textContent } from './transcript.ts';
@@ -50,10 +50,11 @@ export function createHandoffSummarizer(registry: ModelRegistry, choice: () => M
       let end = Math.min(transcript.length, offset + available);
       // Keep multibyte characters intact at chunk boundaries.
       while (end < transcript.length && (transcript[end] & 0xc0) === 0x80) end--;
-      const reply = await registry.streamSimple(model, {
-        systemPrompt: HANDOFF,
+      const stream = await streamWithRegistry(registry, model, {
+        systemPrompt: [HANDOFF],
         messages: [{ role: 'user', timestamp: Date.now(), content: prefix + transcript.subarray(offset, end).toString('utf8') }],
-      }, { reasoning: reasoningFor(model, selected.thinking), maxTokens, signal: AbortSignal.timeout(300_000) }).result();
+      }, { reasoning: reasoningFor(model, selected.thinking), maxTokens, signal: AbortSignal.timeout(300_000) });
+      const reply = await stream.result();
       usage(reply);
       if (reply.stopReason === 'error' || reply.stopReason === 'aborted') throw new Error(reply.errorMessage ?? reply.stopReason);
       if (reply.stopReason === 'length') throw new Error('Handoff hit the model output limit before finishing');

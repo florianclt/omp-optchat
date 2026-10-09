@@ -4,7 +4,7 @@ import { mkdirSync, mkdtempSync, readdirSync, readFileSync, rmSync, symlinkSync,
 import { createConnection } from 'node:net';
 import { basename, join } from 'node:path';
 import { tmpdir } from 'node:os';
-import { createAgentSession, DefaultResourceLoader, ModelRuntime, SessionManager, SettingsManager, type ExtensionUIContext } from '@earendil-works/pi-coding-agent';
+import { createAgentSession, DefaultResourceLoader, ModelRuntime, SessionManager, SettingsManager, type ExtensionUIContext } from '@oh-my-pi/pi-coding-agent';
 import optchat from '../src/index.ts';
 import { Memory } from '../src/memory.ts';
 import { checkSocketPath, createProfile, isWindows, loadConfig, lockProfile, profilePath, profileSocket, saveConfig, SOCKET_PATH_LIMIT } from '../src/profiles.ts';

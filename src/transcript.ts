@@ -1,7 +1,7 @@
 import { createHash } from 'node:crypto';
-import type { AgentMessage } from '@earendil-works/pi-agent-core';
-import type { SessionEntry } from '@earendil-works/pi-coding-agent';
-import { getCurrentSystemMessage, type SystemMessage, type UserMessage } from '@earendil-works/pi-ai';
+import type { AgentMessage } from '@oh-my-pi/pi-agent-core';
+import type { SessionEntry } from '@oh-my-pi/pi-coding-agent';
+import type { UserMessage } from '@oh-my-pi/pi-ai';
 import { CAP, cap, flat, isView, type Memory } from './memory.ts';
 import { AT_WORK } from './prompts.ts';
 import { record } from './cache.ts';
@@ -159,13 +159,11 @@ export function atWork(runs: readonly { id: string; task: string }[]) {
   }).join(', ') + '.';
 }
 
-/** Keep one completed exchange plus the current run; all other history comes from the view.
+/** Keep one completed exchange plus the current run; all other history comes from the view. The system prompt is not here:
+ * omp sets it per turn in before_agent_start, so the context carries messages only.
  * `status` goes last, after everything cached, so it never moves the cached prefix (see cachePayload). It comes with new input only
  * (the user, a report, a restart note): a call that follows a tool result is the same turn, which already had it. */
-export function buildContext(canonical: AgentMessage[], run: AgentMessage[], view: string, prompt: string,
-  previous: readonly AgentMessage[] = [], status?: string): AgentMessage[] {
-  const system = getCurrentSystemMessage(canonical);
-  const head: SystemMessage = { role: 'system', content: prompt, toolsAdded: system?.toolsAdded, timestamp: 0 };
+export function buildContext(run: AgentMessage[], view: string, previous: readonly AgentMessage[] = [], status?: string): AgentMessage[] {
   if (!run.some(m => m.role === 'user')) throw new Error('OptChat has no current user message; refusing to send historical context.');
   let injected = false;
   const messages = [...previous, ...run].filter(m => m.role !== 'system').map(message => {
@@ -173,5 +171,20 @@ export function buildContext(canonical: AgentMessage[], run: AgentMessage[], vie
     injected = true;
     return { ...message, content: [{ type: 'text' as const, text: view }, ...(typeof message.content === 'string' ? [{ type: 'text' as const, text: message.content }] : message.content)] };
   });
-  return [head, ...messages, ...status && messages.at(-1)?.role !== 'toolResult' ? [{ role: 'user' as const, content: [{ type: 'text' as const, text: status }], timestamp: 0 }] : []];
+  return [...messages, ...status && messages.at(-1)?.role !== 'toolResult' ? [{ role: 'user' as const, content: [{ type: 'text' as const, text: status }], timestamp: 0 }] : []];
+}
+
+/** Pi's skill block, as Pi recorded it in a transcript's text: `<skill name=".." location="..">`, the skill, then the user's words. */
+export function parseSkillBlock(text: string): { name: string; userMessage?: string } | undefined {
+  const match = text.match(/^<skill name="([^"]+)" location="([^"]+)">\n([\s\S]*?)\n<\/skill>(?:\n\n([\s\S]+))?$/);
+  if (!match) return undefined;
+  return { name: match[1], userMessage: match[4]?.trim() || undefined };
+}
+/** The `/skill:` invocation a message carries: omp's skill-prompt message names it in its details; otherwise Pi's block is in the text. */
+export function skillInvocation(message: AgentMessage, typed: string): { name: string; userMessage?: string } | undefined {
+  if (message.role === 'custom' && message.customType === 'skill-prompt' && 'details' in message) {
+    const details = message.details as { name?: unknown; args?: unknown } | undefined;
+    if (typeof details?.name === 'string') return { name: details.name, userMessage: typeof details.args === 'string' && details.args || undefined };
+  }
+  return parseSkillBlock(typed);
 }

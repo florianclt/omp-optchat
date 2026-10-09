@@ -1,6 +1,6 @@
-import { getMarkdownTheme, UserMessageComponent, type ExtensionAPI, type ExtensionContext, type Theme } from '@earendil-works/pi-coding-agent';
-import { Container, Loader, Markdown, type Component, type TUI } from '@earendil-works/pi-tui';
-import type { AgentMessage } from '@earendil-works/pi-agent-core';
+import { getMarkdownTheme, UserMessageComponent, type ExtensionAPI, type ExtensionContext, type Theme } from '@oh-my-pi/pi-coding-agent';
+import { Container, Loader, Markdown, type Component, type TUI } from '@oh-my-pi/pi-tui';
+import type { AgentMessage } from '@oh-my-pi/pi-agent-core';
 import { connectWindow, type LiveState, type WindowEvent } from './window-bridge.ts';
 import { profilePath } from './profiles.ts';
 import { TranscriptView } from './agent-view.ts';

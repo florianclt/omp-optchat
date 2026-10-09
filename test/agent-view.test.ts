@@ -3,14 +3,14 @@ import assert from 'node:assert/strict';
 import { mkdtempSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { createAssistantMessageEventStream, type AssistantMessage } from '@earendil-works/pi-ai';
-import { createAgentSession, ModelRegistry, ModelRuntime, SessionManager, initTheme } from '@earendil-works/pi-coding-agent';
-import { TuiMainScreen, visibleWidth, type Terminal, type TuiMouseEvent } from '@earendil-works/pi-tui';
+import { createAssistantMessageEventStream, type AssistantMessage } from '@oh-my-pi/pi-ai';
+import { createAgentSession, ModelRegistry, ModelRuntime, SessionManager, initTheme } from '@oh-my-pi/pi-coding-agent';
+import { TuiMainScreen, visibleWidth, type Terminal, type TuiMouseEvent } from '@oh-my-pi/pi-tui';
 import { Children } from '../src/agents.ts';
 import { Memory } from '../src/memory.ts';
 import { AgentView, TranscriptView, hideImagesUnderOverlays } from '../src/agent-view.ts';
 import { textContent } from '../src/transcript.ts';
-import type { AgentMessage } from '@earendil-works/pi-agent-core';
+import type { AgentMessage } from '@oh-my-pi/pi-agent-core';
 import { emptyUsage } from '../src/usage.ts';
 
 process.env.PI_CODING_AGENT_DIR = mkdtempSync(join(tmpdir(), 'optchat-agent-'));

@@ -1,6 +1,6 @@
 import { createHash } from 'node:crypto';
-import type { ImageContent } from '@earendil-works/pi-ai';
-import { resizeImage } from '@earendil-works/pi-coding-agent';
+import type { ImageContent } from '@oh-my-pi/pi-ai';
+import { resizeImage as ompResizeImage } from '@oh-my-pi/pi-coding-agent/utils/image-resize';
 import { isMime, type Store } from './store.ts';
 
 /** Kept images fit 2048 px on the long side and ~1.5 MB (2 MB as base64), re-encoded as JPEG 85 only when they don't already. */
@@ -14,14 +14,20 @@ const REF = /\[image ([0-9a-f]{16})\]/g;
 export const isImage = (part: unknown): part is ImageContent => typeof part === 'object' && part !== null
   && 'type' in part && part.type === 'image' && 'data' in part && typeof part.data === 'string' && 'mimeType' in part && typeof part.mimeType === 'string';
 
+/** omp's resizer, as its read tool uses: small images come back untouched, and an image it cannot decode is kept as it arrived. */
+async function resizeImage(image: ImageContent): Promise<ImageContent> {
+  const resized = await ompResizeImage({ bytes: Buffer.from(image.data, 'base64'), mimeType: image.mimeType }, IMAGE_LIMITS);
+  if (resized.decodeFailed) return image;
+  return { type: 'image', data: Buffer.from(resized.buffer).toString('base64'), mimeType: resized.mimeType };
+}
+
 /** Keeps each image of a message's content in the store, once per distinct image, shrunk to IMAGE_LIMITS. */
 export async function saveImages(store: Store, content: unknown) {
   if (!Array.isArray(content)) return;
   for (const image of content.filter(isImage)) {
     const name = hash(image);
     if (await store.image(name)) continue;
-    // Pi's own resizer (Photon, WASM), as its read tool uses: it returns small images untouched, and null if it can't decode.
-    const kept = await resizeImage(Buffer.from(image.data, 'base64'), image.mimeType, IMAGE_LIMITS) ?? image;
+    const kept = await resizeImage(image);
     if (isMime(kept.mimeType)) await store.putImage(name, kept.mimeType, Buffer.from(kept.data, 'base64'));
   }
 }

@@ -1,6 +1,6 @@
 ![Pi-OptChat: persistent memory for Pi](https://raw.githubusercontent.com/jonaslsaa/pi-optchat/main/docs/banner.jpg)
 
-# pi-optchat
+# pi-optchat (oh-my-pi port)
 
 A Pi extension that implements [Victor Taelin's OptChat recipe](https://gist.github.com/VictorTaelin/91837951a5ce5b38f341ec1ba1df6449): one endless chat per profile, remembered through a summary tree instead of compaction.
 
@@ -14,18 +14,21 @@ It runs inside ordinary Pi, with no fork or separate launcher.
 
 ## Install
 
+This is the [oh-my-pi](https://github.com/can1357/oh-my-pi) (omp) port of [pi-optchat](https://github.com/jonaslsaa/pi-optchat). It needs omp's Bun runtime; the npm package `pi-optchat` is the Pi version and does not load under omp.
+
 ```sh
-pi install npm:pi-optchat
-pi install npm:pi-web-access   # optional, for web search and page fetching
+omp install git+https://github.com/florianclt/omp-optchat#claude/port-optchat-to-omp-00nxe0
 ```
 
-Or from GitHub: `pi install git:github.com/jonaslsaa/pi-optchat`.
+Requirements: oh-my-pi with the `@oh-my-pi/*` packages, Bun 1.3.14+, and Git. To uninstall, `omp plugin uninstall pi-optchat`. Profile data is kept.
 
-Requirements: Pi 1.0.2 or compatible, Node.js 22.19+, and Git. Tested on macOS; the offline tests also run on Linux and Windows.
+### Differences from the Pi version
 
-Web access is not bundled. Subagents load the Pi extensions you have installed (except pi-optchat itself), so installing `pi-web-access` gives web tools to the main agent and every subagent.
-
-To uninstall, run `pi remove git:github.com/jonaslsaa/pi-optchat`. Profile data is kept.
+- The OptChat preamble and profile instructions are appended to omp's own system prompt. Pi's version replaced the default prompt body, so the main agent now also sees omp's default prompt.
+- `context` replaces Pi's `context_with_system`; a turn's prompt is logged when its `message_end` arrives, and reaches the model the same turn either way.
+- Duplicate reports are kept out of memory and the model's context, but still show on screen (omp cannot rewrite a finished message).
+- Subagents get omp's built-in MCP, codemode and tool search from omp itself, not from a copy of Pi's extensions.
+- Pi's `session_info_changed` event has no omp counterpart, so the tab title is not refreshed on session renames.
 
 ## Quick start
 

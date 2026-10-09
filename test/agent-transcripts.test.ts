@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import { mkdtempSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import type { AgentMessage } from '@earendil-works/pi-agent-core';
+import type { AgentMessage } from '@oh-my-pi/pi-agent-core';
 import { Memory, PAGE } from '../src/memory.ts';
 import { memoryTools } from '../src/tools.ts';
 import { runTranscript } from '../src/transcript.ts';

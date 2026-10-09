@@ -3,9 +3,9 @@ import assert from 'node:assert/strict';
 import { mkdtempSync, readdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { tmpdir } from 'node:os';
-import { createAssistantMessageEventStream, type AssistantMessage, type Context } from '@earendil-works/pi-ai';
+import { createAssistantMessageEventStream, type AssistantMessage, type Context } from '@oh-my-pi/pi-ai';
 import { createAgentSession, CustomMessageComponent, DefaultResourceLoader, initTheme, ModelRuntime, SessionManager, SettingsManager,
-  UserMessageComponent, type ExtensionAPI, type MessageRenderer } from '@earendil-works/pi-coding-agent';
+  UserMessageComponent, type ExtensionAPI, type MessageRenderer } from '@oh-my-pi/pi-coding-agent';
 import optchat from '../src/index.ts';
 import { createProfile, loadConfig, profilePath, saveConfig } from '../src/profiles.ts';
 import { registerReportRenderer, reportParts } from '../src/report-message.ts';
