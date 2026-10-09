@@ -159,6 +159,12 @@ export default function optchat(pi: ExtensionAPI) {
     }
   };
   const CONNECT = 'Start a connected subagent conversation here', BACK = 'Back';
+  /** The profile the next session opens (/optchat profile, a finished import). omp runs newSession's setup only after it reports the switch. */
+  let chosen: string | undefined;
+  const openInNewSession = async (ctx: ExtensionCommandContext, name: string) => {
+    chosen = name;
+    try { await ctx.newSession(); } finally { chosen = undefined; }
+  };
   const chooseProfile = async (ctx: ExtensionContext): Promise<string | undefined> => {
     // Outside the TUI (print, json, RPC hosts) never pick or create a profile: a dialog would hang the host, and a guess could write into the wrong memory.
     if (ctx.mode !== 'tui') return undefined;
@@ -230,8 +236,9 @@ export default function optchat(pi: ExtensionAPI) {
     }
   };
 
-  pi.on('session_start', async (_event, ctx) => {
+  const startSession = async (ctx: ExtensionContext) => {
     stopping = false;
+    const pick = chosen; chosen = undefined;
     const entries = ctx.sessionManager.getEntries();
     const saved = entries.findLast(e => e.type === 'custom' && e.customType === binding);
     const boundName = saved?.type === 'custom' && record(saved.data) && typeof saved.data.name === 'string' ? saved.data.name : undefined;
@@ -240,7 +247,7 @@ export default function optchat(pi: ExtensionAPI) {
     const flag = pi.getFlag('optchat-profile');
     try {
       if (boundName && typeof flag === 'string' && flag !== boundName) throw new Error(`Session belongs to ${boundName}; cannot resume it as ${flag}.`);
-      let name = boundName ?? (typeof flag === 'string' ? flag : await chooseProfile(ctx));
+      let name = boundName ?? pick ?? (typeof flag === 'string' ? flag : await chooseProfile(ctx));
       // Only plain `pi -p` joins: JSON and RPC output carry Pi's own events, which a joined reply would bypass.
       const connect = ctx.mode === 'print' ? connectMode() : 'off';
       if (connect === 'join' && !name) { process.exitCode = 1; throw new Error('--optchat-connect join needs a profile: pass --optchat-profile'); }
@@ -270,7 +277,11 @@ export default function optchat(pi: ExtensionAPI) {
     }
     // Pi sets its own title once every session_start handler has finished, so put ours back afterwards.
     for (const ms of [0, 250, 1000]) setTimeout(() => title.reapply(), ms).unref();
-  });
+  };
+  pi.on('session_start', (_event, ctx) => startSession(ctx));
+  // omp reports /new, /resume, /fork and /optchat profile as session_switch, where Pi ended the old session and started the
+  // new one: close the profile, then open the new session's.
+  pi.on('session_switch', async (_event, ctx) => { await stop(); await startSession(ctx); });
   pi.on('session_shutdown', stop);
   pi.on('session_before_switch', () => remote || importing || active?.children.active ? { cancel: true } : undefined);
   pi.on('session_before_branch', () => remote || importing || active?.children.active ? { cancel: true } : undefined);
@@ -282,6 +293,9 @@ export default function optchat(pi: ExtensionAPI) {
       } catch (error) { process.stderr.write(`OptChat: ${errorText(error)}\n`); process.exitCode = 1; }
       return { handled: true };
     }
+    // omp runs input handlers before its own command handling, where Pi ran them after: slash commands (/optchat itself, a
+    // connected window's /complete) and ! shell commands pass through. A skill or template that becomes a message is logged when it arrives.
+    if (/^[/!]/.test(event.text.trimStart())) return undefined;
     if (remote) {
       try {
         if (event.images?.length) throw new Error('Connected windows currently accept text only; provide a file path for the agent to read.');
@@ -518,7 +532,7 @@ export default function optchat(pi: ExtensionAPI) {
       let failure: unknown;
       try { await importTask; } catch (error) { failure = error; }
       finally { importing = false; importTask = undefined; importController = undefined; ctx.ui.setWidget('optchat-import', undefined); }
-      if (closed && !stopping) await ctx.newSession({ setup: async manager => { manager.appendCustomEntry(binding, { name: a.name }); } });
+      if (closed && !stopping) await openInNewSession(ctx, a.name);
       else status(ctx);
       if (failure) throw failure;
       return;
@@ -528,7 +542,7 @@ export default function optchat(pi: ExtensionAPI) {
       if (ctx.mode !== 'tui') throw new Error('/optchat profile requires interactive Pi. Start headless runs with --optchat-profile <name>.');
       const selected = await chooseProfile(ctx);
       if (!selected || selected === active?.name) return;
-      await ctx.newSession({ setup: async manager => { manager.appendCustomEntry(binding, { name: selected }); } });
+      await openInNewSession(ctx, selected);
       return;
     }
     if (action === 'settings') {
