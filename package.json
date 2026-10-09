@@ -18,13 +18,6 @@
     "typebox": "1.3.27",
     "typescript": "^5.9.0"
   },
-  "peerDependencies": {
-    "@oh-my-pi/pi-agent-core": "*",
-    "@oh-my-pi/pi-ai": "*",
-    "@oh-my-pi/pi-coding-agent": "*",
-    "@oh-my-pi/pi-tui": "*",
-    "typebox": "*"
-  },
   "description": "OptChat memory for oh-my-pi (omp): persistent profiles, zoomable history, background agents, and conversation imports. Fork of pi-optchat.",
   "keywords": [
     "omp-plugin",

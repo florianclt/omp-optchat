@@ -8,7 +8,7 @@ import { createAgentSession, ModelRegistry, ModelRuntime, SessionManager, initTh
 import { TuiMainScreen, visibleWidth, type Terminal, type TuiMouseEvent } from '@oh-my-pi/pi-tui';
 import { Children } from '../src/agents.ts';
 import { Memory } from '../src/memory.ts';
-import { AgentView, TranscriptView, hideImagesUnderOverlays } from '../src/agent-view.ts';
+import { AgentView, TranscriptView } from '../src/agent-view.ts';
 import { textContent } from '../src/transcript.ts';
 import type { AgentMessage } from '@oh-my-pi/pi-agent-core';
 import { emptyUsage } from '../src/usage.ts';
@@ -203,12 +203,9 @@ test('main-chat images are hidden under the agent view and come back after', asy
   tui.addChild({ render: () => ['main chat', image], invalidate() {} });
   const frame = async () => { written = ''; tui.requestRender(true); await new Promise(resolve => setImmediate(resolve)); return written; };
   const overlay = tui.showOverlay({ render: width => Array.from({ length: 30 }, () => 'V'.repeat(width)), invalidate() {} }, { width: '100%', maxHeight: '100%', row: 0, col: 0 });
-  const restore = hideImagesUnderOverlays(tui);
-  try {
-    const covered = await frame();
-    assert.doesNotMatch(covered, /IMAGE_BYTES/);
-    assert.equal(covered.match(/V{100}/g)?.length, 30, 'every row shows the view');
-  } finally { restore(); }
+  const covered = await frame();
+  assert.doesNotMatch(covered, /IMAGE_BYTES/);
+  assert.equal(covered.match(/V{100}/g)?.length, 30, 'every row shows the view');
   overlay.hide();
   assert.match(await frame(), /IMAGE_BYTES/);
   tui.stop();

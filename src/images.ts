@@ -14,9 +14,10 @@ const REF = /\[image ([0-9a-f]{16})\]/g;
 export const isImage = (part: unknown): part is ImageContent => typeof part === 'object' && part !== null
   && 'type' in part && part.type === 'image' && 'data' in part && typeof part.data === 'string' && 'mimeType' in part && typeof part.mimeType === 'string';
 
-/** omp's resizer, as its read tool uses: small images come back untouched, and an image it cannot decode is kept as it arrived. */
+/** omp's resizer, as its read tool uses: small images come back untouched, and an image it cannot decode is kept as it arrived.
+ * Every omp release takes the image content itself (18.8 also accepts raw bytes). */
 async function resizeImage(image: ImageContent): Promise<ImageContent> {
-  const resized = await ompResizeImage({ bytes: Buffer.from(image.data, 'base64'), mimeType: image.mimeType }, IMAGE_LIMITS);
+  const resized = await ompResizeImage(image, IMAGE_LIMITS);
   if (resized.decodeFailed) return image;
   return { type: 'image', data: Buffer.from(resized.buffer).toString('base64'), mimeType: resized.mimeType };
 }

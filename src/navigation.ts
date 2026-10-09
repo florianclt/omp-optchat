@@ -33,7 +33,9 @@ export class BarNavigation {
 
 export function mountNavigation(ctx: ExtensionContext, children: Children, memory: Pick<Memory, 'progress' | 'onChange'>, shortcut: string, open: (page: InspectorPage) => void) {
   const navigation = new BarNavigation();
-  const previous = ctx.ui.getEditorComponent();
+  // omp has no getter for the current editor (Pi had getEditorComponent), so there OptChat can't see another extension's editor and installs its own.
+  const editor = (ctx.ui as { getEditorComponent?: () => unknown }).getEditorComponent;
+  const previous = editor?.call(ctx.ui);
   let redraw = () => {};
   const factory: Parameters<typeof ctx.ui.setEditorComponent>[0] = (tui, theme, keys) => {
     class OptChatEditor extends CustomEditor {
@@ -64,6 +66,6 @@ export function mountNavigation(ctx: ExtensionContext, children: Children, memor
   const unsubscribe = [children.subscribe(() => redraw()), memory.onChange(() => redraw())];
   return () => {
     unsubscribe.forEach(stop => stop()); ctx.ui.setWidget('optchat-agents', undefined);
-    if (!previous && ctx.ui.getEditorComponent() === factory) ctx.ui.setEditorComponent(undefined);
+    if (!previous && (!editor || editor.call(ctx.ui) === factory)) ctx.ui.setEditorComponent(undefined);
   };
 }
