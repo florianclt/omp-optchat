@@ -25,7 +25,7 @@
     "@oh-my-pi/pi-tui": "*",
     "typebox": "*"
   },
-  "description": "OptChat memory for oh-my-pi (omp): persistent profiles, zoomable history, background agents, and conversation imports. Port of pi-optchat.",
+  "description": "OptChat memory for oh-my-pi (omp): persistent profiles, zoomable history, background agents, and conversation imports. Fork of pi-optchat.",
   "keywords": [
     "omp-plugin",
     "optchat",
