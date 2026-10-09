@@ -9,11 +9,12 @@ https://gist.github.com/VictorTaelin/91837951a5ce5b38f341ec1ba1df6449
 
 That upstream text is credited to Victor Taelin and is not relicensed by this
 repository's MIT grant for original implementation code. The complete recipe
-is linked upstream. This project is an independent Pi extension.
+is linked upstream. This project is an independent oh-my-pi extension.
 
 ## pi-optchat
 
-This repository ports Jonas's pi-optchat (MIT) to oh-my-pi:
+This repository is a fork of Jonas Silva's pi-optchat (MIT), changed to run
+under oh-my-pi:
 
 https://github.com/jonaslsaa/pi-optchat
 

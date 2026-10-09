@@ -5,7 +5,6 @@ import {
 } from '@oh-my-pi/pi-coding-agent';
 import { Editor, Spacer, matchesKey, truncateToWidth, visibleWidth, type Component, type Focusable, type TUI, type TuiMouseEvent, type TuiMouseEventResult } from '@oh-my-pi/pi-tui';
 import type { AgentMessage } from '@oh-my-pi/pi-agent-core';
-import { compositeLineAt as compositeTuiLine } from '@oh-my-pi/pi-tui/render/composite';
 import type { Children } from './agents.ts';
 import type { RunInfo } from './runs.ts';
 import { textContent } from './transcript.ts';
@@ -311,27 +310,11 @@ export class AgentView implements Component, Focusable {
   }
 }
 
-/**
- * Pi never composites overlays onto rows holding a terminal image (earendil-works/pi#6995), so images in the
- * main chat would show through the full-screen view. While it is open, image rows under overlays are blanked.
- * If Pi renames the hook, this quietly does nothing.
- */
-export function hideImagesUnderOverlays(tui: TUI) {
-  Object.assign(tui, { compositeLineAt: (...[base, ...rest]: Parameters<typeof compositeTuiLine>) =>
-    compositeTuiLine(/\x1b_G|\x1b\]1337;File=/.test(base) ? '' : base, ...rest) });
-  return () => { Reflect.deleteProperty(tui, 'compositeLineAt'); };
-}
-
 /** Swaps the whole screen to the subagent's conversation; Pi restores the main chat on close. */
 export async function showAgentView(ctx: ExtensionContext, options: { id: string; children: Children; signal?: AbortSignal }) {
-  let restore = () => {};
-  try {
-    return await ctx.ui.custom<void>((tui, theme, keybindings, done) => {
-      restore = hideImagesUnderOverlays(tui);
-      return new AgentView({ ...options, tui,
-        rows: () => tui.terminal.rows, redraw: () => tui.requestRender(), done: () => done(undefined),
-        color: (tone, text) => theme.fg(tone, text), isExpandKey: data => keybindings.matches(data, 'app.tools.expand'),
-      });
-    }, { overlay: true, overlayOptions: { width: '100%', maxHeight: '100%', row: 0, col: 0 } });
-  } finally { restore(); }
+  // omp blanks terminal images under a full-width overlay itself, so the main chat's images don't show through.
+  return await ctx.ui.custom<void>((tui, theme, keybindings, done) => new AgentView({ ...options, tui,
+    rows: () => tui.terminal.rows, redraw: () => tui.requestRender(), done: () => done(undefined),
+    color: (tone, text) => theme.fg(tone, text), isExpandKey: data => keybindings.matches(data, 'app.tools.expand'),
+  }), { overlay: true, overlayOptions: { width: '100%', maxHeight: '100%', row: 0, col: 0 } });
 }

@@ -1,8 +1,12 @@
 ![Pi-OptChat: persistent memory for Pi](https://raw.githubusercontent.com/jonaslsaa/pi-optchat/main/docs/banner.jpg)
 
-# pi-optchat (oh-my-pi port)
+# pi-optchat for oh-my-pi (omp)
 
-A Pi extension that implements [Victor Taelin's OptChat recipe](https://gist.github.com/VictorTaelin/91837951a5ce5b38f341ec1ba1df6449): one endless chat per profile, remembered through a summary tree instead of compaction.
+**This repository is a fork of [jonaslsaa/pi-optchat](https://github.com/jonaslsaa/pi-optchat), changed to run as an [oh-my-pi](https://github.com/can1357/oh-my-pi) (omp) plugin.** The original targets Pi. This fork targets omp, and the npm package `pi-optchat` is still the Pi version, which does not load under omp. The behaviour is the original's, apart from the [differences listed below](#differences-from-the-pi-version).
+
+Wording in the sections below says Pi where it means the host app. In this fork the host is omp, so read Pi as omp. Pi-specific paths and commands come from the original and have not all been re-checked against omp.
+
+An extension that implements [Victor Taelin's OptChat recipe](https://gist.github.com/VictorTaelin/91837951a5ce5b38f341ec1ba1df6449): one endless chat per profile, remembered through a summary tree instead of compaction.
 
 - **Memory**: every message is logged and summarized into a binary tree. Each turn starts from a fresh context holding a bounded memory view; the agent uses `zoom` and `date` to read originals.
 - **Profiles**: separate memories and instructions, such as `work` and `personal`.
@@ -10,14 +14,14 @@ A Pi extension that implements [Victor Taelin's OptChat recipe](https://gist.git
 - **Import**: bring in history from Claude Code (conversations and memories), Codex, Pi and [OMP](https://github.com/can1357/oh-my-pi), or ChatGPT.
 - **Connected windows**: a second Pi window on the same profile becomes a subagent you talk to directly.
 
-It runs inside ordinary Pi, with no fork or separate launcher.
+It runs inside oh-my-pi as an omp plugin, with no separate launcher.
 
 ## Install
 
-This is the [oh-my-pi](https://github.com/can1357/oh-my-pi) (omp) port of [pi-optchat](https://github.com/jonaslsaa/pi-optchat). It needs omp's Bun runtime; the npm package `pi-optchat` is the Pi version and does not load under omp.
+This fork is for [oh-my-pi](https://github.com/can1357/oh-my-pi) (omp). It needs omp's Bun runtime. To use the original Pi version instead, install [pi-optchat](https://github.com/jonaslsaa/pi-optchat) from its own repository.
 
 ```sh
-omp install git+https://github.com/florianclt/omp-optchat#claude/port-optchat-to-omp-00nxe0
+omp install git+https://github.com/florianclt/omp-optchat
 ```
 
 Requirements: oh-my-pi with the `@oh-my-pi/*` packages, Bun 1.3.14+, and Git. To uninstall, `omp plugin uninstall pi-optchat`. Profile data is kept.
@@ -255,18 +259,18 @@ Each run's context is the memory view, the previous exchange, and your new messa
 ## Development
 
 ```sh
-git clone https://github.com/jonaslsaa/pi-optchat.git
-cd pi-optchat
-npm ci --ignore-scripts
-pi install .
+git clone https://github.com/florianclt/omp-optchat.git
+cd omp-optchat
+bun install
+omp install .
 ```
 
-Restart Pi after source changes. Use `OPTCHAT_HOME` to test against a throwaway data directory.
+Restart omp after source changes. Use `OPTCHAT_HOME` to test against a throwaway data directory.
 
 ```sh
-npm run check      # type check
-npm test           # offline tests, no paid model calls
-npm run test:live  # paid Anthropic calls on synthetic data in a disposable profile
+npm run check      # type check; currently reports errors in the test and TUI files
+npm test           # offline tests; not yet ported, they import Bun-native omp packages
+npm run test:live  # paid Anthropic calls on synthetic data in a disposable profile; not yet ported
 ```
 
 ### Publishing to npm
@@ -282,6 +286,8 @@ The workflow checks that the tag matches `package.json`, runs the type check and
 
 ## Credits and license
 
-Based on [Victor Taelin's OptChat recipe](https://gist.github.com/VictorTaelin/91837951a5ce5b38f341ec1ba1df6449) and [OptMem](https://github.com/VictorTaelin/OptMem). His revised gist (2026-10-08) calls his own version UniiChat. This is an independent Pi implementation, not Victor's official OptChat.
+Based on [Victor Taelin's OptChat recipe](https://gist.github.com/VictorTaelin/91837951a5ce5b38f341ec1ba1df6449) and [OptMem](https://github.com/VictorTaelin/OptMem). His revised gist (2026-10-08) calls his own version UniiChat. This is an independent implementation, not Victor's official OptChat.
+
+Forked from [jonaslsaa/pi-optchat](https://github.com/jonaslsaa/pi-optchat) (MIT) by Jonas Silva, and made compatible with [oh-my-pi](https://github.com/can1357/oh-my-pi) (MIT).
 
 MIT licensed. See [LICENSE](LICENSE) and [third-party notices](THIRD_PARTY_NOTICES.md).

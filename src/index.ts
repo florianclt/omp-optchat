@@ -166,9 +166,14 @@ export default function optchat(pi: ExtensionAPI) {
     if (last) names.sort((a, b) => Number(b === last) - Number(a === last));
     const selected = await ctx.ui.select('OptChat profile', [...names, '+ Create profile']);
     if (selected !== '+ Create profile') return selected;
-    const name = (await ctx.ui.input('New profile name', 'work or personal'))?.trim();
-    if (!name) return undefined;
-    createProfile(name); return name;
+    // A name that can't be used asks again, saying why, instead of leaving the session with no profile.
+    let title = 'New profile name';
+    for (;;) {
+      const name = (await ctx.ui.input(title, 'work or personal'))?.trim();
+      if (!name) return undefined;
+      try { createProfile(name); return name; }
+      catch (error) { title = `${errorText(error)}\nNew profile name`; }
+    }
   };
   const openProfile = async (name: string, ctx: ExtensionContext) => {
     const dir = profilePath(name);
@@ -287,7 +292,7 @@ export default function optchat(pi: ExtensionAPI) {
     if (!active) {
       // Without a profile or flag, a headless run is plain Pi. A requested profile that failed to open refuses instead of running without memory.
       if (ctx.mode !== 'tui' && !fault) return undefined;
-      ctx.ui.notify(fault ?? 'Select a profile with /optchat profile before chatting.', 'error'); return { handled: true };
+      ctx.ui.notify(fault ? `${fault}\nUse /optchat profile to pick or create a profile.` : 'Select a profile with /optchat profile before chatting.', 'error'); return { handled: true };
     }
     if (importing || pendingImport(active.dir)) { ctx.ui.notify('This profile has an import in progress. Use /optchat import to resume or discard it, or switch profiles.', 'info'); return { handled: true }; }
     if (event.source !== 'extension') {
