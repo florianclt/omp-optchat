@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { visibleWidth } from '@earendil-works/pi-tui';
+import { visibleWidth } from '@oh-my-pi/pi-tui';
 import { MultiSelect } from '../src/import/multi-select.ts';
 
 test('long lists scroll past the first screen and Space preserves cursor and viewport', () => {

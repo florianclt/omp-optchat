@@ -1,5 +1,5 @@
-import { CustomEditor, type ExtensionContext } from '@earendil-works/pi-coding-agent';
-import { matchesKey, truncateToWidth, visibleWidth, type KeyId } from '@earendil-works/pi-tui';
+import { CustomEditor, type ExtensionContext } from '@oh-my-pi/pi-coding-agent';
+import { matchesKey, truncateToWidth, visibleWidth, type KeyId } from '@oh-my-pi/pi-tui';
 import type { Children } from './agents.ts';
 import type { Memory } from './memory.ts';
 import { inspectorShowing, nextPage, type InspectorPage } from './inspector.ts';

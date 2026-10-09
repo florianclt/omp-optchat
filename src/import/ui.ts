@@ -1,4 +1,4 @@
-import type { ExtensionUIContext } from '@earendil-works/pi-coding-agent';
+import type { ExtensionUIContext } from '@oh-my-pi/pi-coding-agent';
 import type { Memory } from '../memory.ts';
 import { bytes } from '../memory.ts';
 import { scanLocal, scanChatGPT, scanClaudeMemories, readConversation, type Conversation, type ImportedEntry, type Source } from './sources.ts';

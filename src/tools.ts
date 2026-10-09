@@ -1,5 +1,5 @@
 import { Type, type Static } from 'typebox';
-import type { AgentMessage } from '@earendil-works/pi-agent-core';
+import type { AgentMessage } from '@oh-my-pi/pi-agent-core';
 import { flat, PAGE, start, type Memory } from './memory.ts';
 import { loadImages } from './images.ts';
 import { runTranscript } from './transcript.ts';

@@ -1,9 +1,9 @@
-import { Container, fuzzyFilter, getKeybindings, Input, SelectList, SettingsList, Spacer, Text, type Component, type SelectItem, type SettingItem } from '@earendil-works/pi-tui';
-import { DynamicBorder, type ExtensionContext, type Theme } from '@earendil-works/pi-coding-agent';
+import { Container, fuzzyFilter, getKeybindings, Input, SelectList, SettingsList, Spacer, Text, type Component, type SelectItem, type SettingItem } from '@oh-my-pi/pi-tui';
+import { DynamicBorder, type ExtensionContext, type Theme } from '@oh-my-pi/pi-coding-agent';
 import { defaults, THINKING, type ProfileConfig } from './profiles.ts';
 import { invalid, isNumberKey, SETTING_KEYS, SETTINGS, type NumberKey, type SettingKey } from './settings.ts';
 import type { ModelChoice } from './compactor.ts';
-import type { ThinkingLevel } from '@earendil-works/pi-agent-core';
+import type { ThinkingLevel } from '@oh-my-pi/pi-agent-core';
 
 type Role = 'compactor' | 'subagent';
 const ROLES: Record<Role, { label: string; description: string; applies: string }> = {

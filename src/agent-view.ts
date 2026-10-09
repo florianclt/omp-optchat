@@ -2,9 +2,10 @@ import {
   AssistantMessageComponent, CustomMessageComponent, ToolExecutionComponent, UserMessageComponent, getMarkdownTheme, getSelectListTheme,
   createBashToolDefinition, createEditToolDefinition, createFindToolDefinition, createGrepToolDefinition, createLsToolDefinition, createReadToolDefinition, createWriteToolDefinition,
   type ExtensionContext,
-} from '@earendil-works/pi-coding-agent';
-import { Editor, Spacer, compositeTuiLine, matchesKey, truncateToWidth, visibleWidth, type Component, type Focusable, type TUI, type TuiMouseEvent, type TuiMouseEventResult } from '@earendil-works/pi-tui';
-import type { AgentMessage } from '@earendil-works/pi-agent-core';
+} from '@oh-my-pi/pi-coding-agent';
+import { Editor, Spacer, matchesKey, truncateToWidth, visibleWidth, type Component, type Focusable, type TUI, type TuiMouseEvent, type TuiMouseEventResult } from '@oh-my-pi/pi-tui';
+import type { AgentMessage } from '@oh-my-pi/pi-agent-core';
+import { compositeLineAt as compositeTuiLine } from '@oh-my-pi/pi-tui/render/composite';
 import type { Children } from './agents.ts';
 import type { RunInfo } from './runs.ts';
 import { textContent } from './transcript.ts';

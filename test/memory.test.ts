@@ -9,8 +9,8 @@ import { lockProfile } from '../src/profiles.ts';
 import { splitView, cachePayload } from '../src/cache.ts';
 import { logMessage, buildContext, boundedMessage } from '../src/transcript.ts';
 import { Inbox } from '../src/inbox.ts';
-import type { ToolResultMessage } from '@earendil-works/pi-ai';
-import type { AssistantMessage, SystemMessage, UserMessage } from '@earendil-works/pi-ai';
+import type { ToolResultMessage } from '@oh-my-pi/pi-ai';
+import type { AssistantMessage, SystemMessage, UserMessage } from '@oh-my-pi/pi-ai';
 
 test('tree covers all history, fits incrementally, and exact originals survive restart', async () => {
   const dir = mkdtempSync(join(tmpdir(), 'optchat-test-'));

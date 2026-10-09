@@ -3,8 +3,8 @@ import assert from 'node:assert/strict';
 import { mkdtempSync, readFileSync, readdirSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { createAgentSession, DefaultResourceLoader, ModelRuntime, SessionManager, SettingsManager, getAgentDir } from '@earendil-works/pi-coding-agent';
-import type { AgentMessage } from '@earendil-works/pi-agent-core';
+import { createAgentSession, DefaultResourceLoader, ModelRuntime, SessionManager, SettingsManager, getAgentDir } from '@oh-my-pi/pi-coding-agent';
+import type { AgentMessage } from '@oh-my-pi/pi-agent-core';
 import optchat from '../src/index.ts';
 import { createProfile, profilePath } from '../src/profiles.ts';
 

@@ -1,6 +1,6 @@
-import { clampThinkingLevel, type Api, type AssistantMessage, type Message, type Model } from '@earendil-works/pi-ai';
-import type { ThinkingLevel } from '@earendil-works/pi-agent-core';
-import type { ModelRegistry } from '@earendil-works/pi-coding-agent';
+import { clampThinkingLevel, streamSimple, type Api, type AssistantMessage, type Context, type Message, type Model, type SimpleStreamOptions } from '@oh-my-pi/pi-ai';
+import type { ThinkingLevel } from '@oh-my-pi/pi-agent-core';
+import type { ModelRegistry } from '@oh-my-pi/pi-coding-agent';
 import { COMPACT, compaction, IMPORT_GUIDANCE, tooLong } from './prompts.ts';
 import { bytes, NODE, type Compressor } from './memory.ts';
 import { cachePayload, splitView } from './cache.ts';
@@ -12,6 +12,11 @@ export const reasoningFor = (model: Model<Api>, level: ThinkingLevel) => {
   const thinking = clampThinkingLevel(model, level);
   return thinking === 'off' ? undefined : thinking;
 };
+/** Streams one request with the registry's credential for the model. omp's registry no longer streams, so this is the call Pi's `registry.streamSimple` made. */
+export async function streamWithRegistry(registry: ModelRegistry, model: Model<Api>, context: Context, options: SimpleStreamOptions) {
+  const apiKey = await registry.getApiKey(model, undefined, { signal: options.signal });
+  return streamSimple(model, context, { ...options, apiKey });
+}
 const WARM_MS = 4 * 60_000; // Anthropic's short cache lives 5 minutes from its last use.
 
 /** Parallel calls can't read a cache entry that isn't written yet, so one call primes a cold prefix and the rest wait until it answers.
@@ -59,7 +64,7 @@ export function createCompressor(registry: ModelRegistry, choice: () => ModelCho
       const warmed = prefix ? await gate(prefix, signal) : () => {};
       let reply: AssistantMessage;
       try {
-        const stream = registry.streamSimple(model, { systemPrompt: COMPACT, messages }, {
+        const stream = await streamWithRegistry(registry, model, { systemPrompt: [COMPACT], messages }, {
           // A shared session id is the OpenAI prompt-cache key; SSE because over a websocket Codex would chain unrelated parallel calls on one cached connection.
           sessionId: 'optchat-compactor', transport: 'sse',
           reasoning: thinking, signal, cacheRetention: 'short',

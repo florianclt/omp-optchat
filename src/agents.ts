@@ -2,16 +2,16 @@ import { randomUUID } from 'node:crypto';
 import { existsSync, readFileSync, statSync } from 'node:fs';
 import { join, dirname, resolve } from 'node:path';
 import { homedir } from 'node:os';
-import { createAgentSession, DefaultResourceLoader, SessionManager, SettingsManager, getAgentDir, type AgentSession, type AgentSessionEvent, type ExtensionAPI, type InlineExtension, type ModelRegistry } from '@earendil-works/pi-coding-agent';
-import * as sdk from '@earendil-works/pi-coding-agent';
-import type { AgentMessage } from '@earendil-works/pi-agent-core';
-import type { Api, Model } from '@earendil-works/pi-ai';
+import { createAgentSession, DefaultResourceLoader, SessionManager, SettingsManager, getAgentDir, type AgentSession, type AgentSessionEvent, type ExtensionAPI, type ModelRegistry } from '@oh-my-pi/pi-coding-agent';
+import * as sdk from '@oh-my-pi/pi-coding-agent';
+import type { AgentMessage } from '@oh-my-pi/pi-agent-core';
+import type { Api, Model } from '@oh-my-pi/pi-ai';
 import { allowSearch, CONNECTED, cutOffChildren, delegation, NO_DELEGATION, NOT_CONNECTED, RESTARTED, SEARCH_DOC, STEERABLE, SUBAGENT, VIEW_DOC } from './prompts.ts';
 import { memoryTools, searchTool } from './tools.ts';
 import { type Memory } from './memory.ts';
 import type { ModelChoice } from './compactor.ts';
 import { cachePayload } from './cache.ts';
-import { CUT_OFF, RunHistory, isRunning, transition, sessionMessages, type RunInfo, type RunState, type FinishReason } from './runs.ts';
+import { CUT_OFF, RunHistory, isRunning, transition, readSession, sessionMessages, type RunInfo, type RunState, type FinishReason } from './runs.ts';
 import { UsageLedger } from './usage.ts';
 import { fullChat, textContent } from './transcript.ts';
 import { Type } from 'typebox';
@@ -31,8 +31,6 @@ export interface LiveRun {
   batch?: { ids: string[]; reports: Map<string, string> };
 }
 interface Options { parentSession?: string; usage?: UsageLedger; createSession?: typeof createAgentSession;
-  /** Names of the built-in extensions the main session loaded (see `loadedBuiltins`). */
-  builtins?: () => Iterable<string>;
   /** Journals the reports a main-agent spawn has so far while its other children still run (none: the batch was delivered), so a crash cannot lose them. */
   hold?: (batch: string, texts: string[]) => void;
   /** Read on every spawn, so a changed profile setting applies to the next one. Missing settings take their defaults. */
@@ -56,18 +54,6 @@ export const taskDirectory = (cwd: string, path = '.', windows = process.platfor
 export const CWD_DOC = 'Project directory the subagent works in (~ allowed); its AGENTS.md files load from there. Defaults to your current directory.';
 const isOptchat = (path: string) => packageName(path) === 'pi-optchat';
 
-// Pi's CLI adds its built-in extensions (MCP, codemode, tool search) to its own session; SDK sessions such as
-// subagents must add them. Pi versions that do not export a factory simply do not get that extension.
-const BUILTINS: Record<string, string> = { mcp: 'createMcpExtension', codemode: 'createCodemodeExtension', 'tool-search': 'createToolSearchExtension' };
-const PREFIX = 'builtin:';
-/** The built-in extensions a session loaded: `--no-mcp`, `-builtin:<name>` settings and replacing extensions leave them out. */
-export const loadedBuiltins = (pi: Pick<ExtensionAPI, 'getCommands' | 'getAllTools'>) => new Set([...pi.getCommands(), ...pi.getAllTools()]
-  .map(item => item.sourceInfo?.path ?? '').filter(path => path.startsWith(PREFIX) && Object.hasOwn(BUILTINS, path.slice(PREFIX.length))).map(path => path.slice(PREFIX.length)));
-/** Fresh built-in extensions for one session, as `builtin:<name>` resources, so the session's own settings still apply. */
-export const builtinExtensions = (names: Iterable<string>): InlineExtension[] => [...new Set(names)].flatMap(name => {
-  const create = Object.hasOwn(BUILTINS, name) ? (sdk as unknown as Record<string, unknown>)[BUILTINS[name]] : undefined;
-  return typeof create === 'function' ? [{ name, factory: create(), replaceable: true, builtin: true }] : [];
-});
 export class Children {
   private readonly running = new Map<string, LiveRun>();
   readonly history: RunHistory;
@@ -88,8 +74,7 @@ export class Children {
     for (const run of this.history.records.values()) {
       if (!run.sessionFile || !options.usage) continue;
       try {
-        const manager = SessionManager.open(run.sessionFile);
-        options.usage.backfill(manager.getEntries(), run.parentSession, 'subagent', run.id);
+        options.usage.backfill(readSession(run.sessionFile).entries, run.parentSession, 'subagent', run.id);
       } catch (error) { warn(`Could not backfill child usage for ${run.id}: ${String(error)}`); }
     }
   }
@@ -124,7 +109,7 @@ export class Children {
       if (event.type === 'message_end') {
         live.streaming = undefined;
       }
-      if (event.type === 'turn_end' || event.type === 'agent_settled') this.options.usage?.backfill(live.session.sessionManager.getEntries(), live.info.parentSession, 'subagent', live.info.id);
+      if (event.type === 'turn_end' || event.type === 'agent_end') this.options.usage?.backfill(live.session.sessionManager.getEntries(), live.info.parentSession, 'subagent', live.info.id);
       if (event.type === 'message_start' && event.message.role === 'user') {
         const text = textContent(event.message.content);
         const guidance = live.info.guidance.find(g => g.state === 'queued' && g.text === text);
@@ -195,7 +180,7 @@ export class Children {
         const id = randomUUID().slice(0, 8), directory = taskDirectory(cwd, task.cwd);
         const session = await this.open({ id, directory, depth, parentId, connected, provider: selected.provider, model, thinking: selected.thinking,
           sessionManager: SessionManager.create(directory, join(this.profileDirectory, 'runs')) });
-        const info: RunInfo = { id, task: task.task, cwd: directory, model: `${selected.provider}/${selected.model}`, thinking: session.thinkingLevel,
+        const info: RunInfo = { id, task: task.task, cwd: directory, model: `${selected.provider}/${selected.model}`, thinking: session.thinkingLevel ?? 'off',
           parentSession: this.options.parentSession ?? '', parentId, depth, sessionFile: session.sessionFile, started: Date.now(), state: 'running', guidance: [], ...(connected ? { connected: true } : {}) };
         const live: LiveRun = { session, info, updated: Date.now(), tools: new Map(), pendingReports: [], pendingGuidance: [] };
         launched.push(live); this.save(info); this.running.set(id, live);
@@ -206,8 +191,7 @@ export class Children {
       }
     } catch (error) {
       for (const child of launched) {
-        await this.shutdown(child.session); // Extensions such as MCP close their connections and stop their server processes.
-        this.dispose(child.session); this.running.delete(child.info.id);
+        await this.dispose(child.session); this.running.delete(child.info.id); // Disposing ends the session's extensions, which close their connections and servers.
         transition(child.info, 'failed'); child.info.ended = Date.now(); child.info.report = `Launch failed: ${String(error)}`;
         if (child.info.connected) child.info.handoff = { reason: signal?.aborted ? 'disconnected' : 'failed' };
         this.save(child.info);
@@ -224,30 +208,23 @@ export class Children {
     const { subagentLevels, maxAgents, memorySearch } = this.settings, delegates = depth < subagentLevels;
     const instructions = [this.instructions(), delegates ? delegation(maxAgents) : NO_DELEGATION, STEERABLE, connected ? CONNECTED : NOT_CONNECTED].filter(Boolean).join('\n\n');
     // The user's settings list their installed packages; a copy in memory keeps the child from writing them back.
-    const settingsManager = SettingsManager.inMemory({ ...SettingsManager.create(directory, getAgentDir()).getSettings(), compaction: { enabled: false }, cacheWarming: 'off' });
+    const settingsManager = SettingsManager.create(directory, getAgentDir());
+    // omp's own prompt (AGENTS.md files, skills, cwd) stays; the subagent's preamble and instructions follow it.
     const loader = new DefaultResourceLoader({ cwd: directory, agentDir: getAgentDir(), settingsManager,
       noPromptTemplates: true,
       extensionsOverride: base => ({ ...base, extensions: base.extensions.filter(e => !isOptchat(e.resolvedPath)) }),
-      extensionFactories: [...builtinExtensions(this.options.builtins?.() ?? []), pi => {
-        const provider = this.registry.getRegisteredProviderConfig(o.provider);
-        if (provider) pi.registerProvider(o.provider, provider);
-        // Same prompt as the main agent (AGENTS.md files, skills, cwd); only the OptChat preamble differs.
-        pi.on('before_agent_start', event => {
-          event.systemPromptOptions.customPrompt = allowSearch(`${SUBAGENT}\n\n${VIEW_DOC}${memorySearch ? SEARCH_DOC : ''}`, memorySearch);
-          event.systemPromptOptions.sections.instructions = instructions;
-        });
+      extensionFactories: [pi => {
+        pi.on('before_agent_start', event => ({ systemPrompt: [...event.systemPrompt, allowSearch(`${SUBAGENT}\n\n${VIEW_DOC}${memorySearch ? SEARCH_DOC : ''}`, memorySearch), instructions] }));
         pi.on('before_provider_request', (event, ctx) => ctx.model?.api === 'anthropic-messages' ? cachePayload(event.payload) : event.payload);
       }],
     });
     await loader.reload();
+    // The registry is the main agent's, so providers other extensions registered are available to the subagent too.
     const { session } = await (this.options.createSession ?? createAgentSession)({ cwd: directory, resourceLoader: loader, settingsManager,
+      modelRegistry: this.registry, cacheWarming: false,
       model: o.model, thinkingLevel: o.thinking, sessionManager: o.sessionManager,
       customTools: [...memoryTools(() => this.memory, run => this.transcript(run, id)), ...(memorySearch ? [searchTool(() => this.memory)] : []), ...(delegates ? this.delegationTools(id, directory, subagentLevels, maxAgents) : []), this.parentTool(id, parentId, connected)],
-      excludeTools: delegates ? [] : ['spawn', 'tell'],
     });
-    // Callers track the session only after this returns: clean up here if its extensions fail to start.
-    try { await session.bindExtensions({}); }
-    catch (error) { await this.shutdown(session); this.dispose(session); throw error; }
     return session;
   }
   private delegationTools(parentId: string, cwd: string, levels: number, maxAgents: number) {
@@ -285,12 +262,9 @@ export class Children {
     this.changed();
     return true;
   }
-  private async shutdown(session: AgentSession) {
-    try { await session.extensionRunner.emit({ type: 'session_shutdown', reason: 'quit' }); }
-    catch (error) { this.warn(`Subagent cleanup failed: ${String(error)}`); }
-  }
-  private dispose(session: AgentSession) {
-    try { session.dispose(); } catch (error) { this.warn(`Subagent cleanup failed: ${String(error)}`); }
+  /** Disposing a session also emits its `session_shutdown` to the extensions, so one call does both. */
+  private async dispose(session: AgentSession) {
+    try { await session.dispose(); } catch (error) { this.warn(`Subagent cleanup failed: ${String(error)}`); }
   }
   private directChildren(id: string) { return [...this.running.values()].filter(c => c.info.parentId === id); }
   private async execute(live: LiveRun, prompt: string) {
@@ -361,9 +335,8 @@ export class Children {
       await Promise.allSettled(children.flatMap(child => child.completion ? [child.completion] : []));
       info.ended = Date.now();
       for (const g of info.guidance) if (g.state === 'queued') g.state = 'undelivered';
-      await this.shutdown(session);
       // A failed dispose must neither keep the slot taken nor drop the report below.
-      this.dispose(session); this.running.delete(info.id);
+      await this.dispose(session); this.running.delete(info.id);
     }
     if (info.cutOff) {
       // Aborted by Pi closing, not by anyone's choice: no report now, the next start resumes it.
@@ -454,11 +427,11 @@ export class Children {
     const pending = live.pendingGuidance.lastIndexOf(guidance.text);
     if (pending >= 0) live.pendingGuidance.splice(pending, 1);
     else {
-      const steering = live.session.getSteeringMessages();
+      const steering = live.session.getQueuedMessages().steering;
       const at = steering.lastIndexOf(guidance.text);
       if (at < 0) return undefined; // Already on its way to the agent.
       // Pi cannot drop a single queued message: clear the queue and steer the rest back in order.
-      void this.requeue(live, live.session.clearQueue().steering.filter((_, i) => i !== at));
+      void this.requeue(live, live.session.clearQueue().steering.map(m => m.text).filter((_, i) => i !== at));
     }
     live.info.guidance.splice(live.info.guidance.indexOf(guidance), 1); this.save(live.info);
     return guidance.text;
@@ -486,7 +459,7 @@ export class Children {
     if (this.closing) throw new Error('Profile is closing.');
     if (this.full(1)) throw new Error(`Profile limit: at most ${this.settings.maxAgents} active agents, including parents and descendants. ${id} can be resumed when one finishes.`);
     let manager: SessionManager | undefined;
-    try { if (run.sessionFile && existsSync(run.sessionFile)) manager = SessionManager.open(run.sessionFile); } catch { manager = undefined; }
+    try { if (run.sessionFile && existsSync(run.sessionFile)) manager = await SessionManager.open(run.sessionFile); } catch { manager = undefined; }
     if (!manager?.getEntries().some(e => e.type === 'message')) throw new Error(`The saved transcript of ${id} is missing or unreadable, so it cannot be resumed. Spawn a fresh subagent and give it the context it needs.`);
     if (!existsSync(run.cwd) || !statSync(run.cwd).isDirectory()) throw new Error(`${id}'s directory ${run.cwd} no longer exists, so it cannot be resumed. Spawn a fresh subagent instead.`);
     const slash = run.model.indexOf('/'), provider = run.model.slice(0, slash);
@@ -500,7 +473,7 @@ export class Children {
       // stop() cannot see this child until it is registered, so a parent stopped meanwhile must cancel it here.
       const parent = run.parentId ? this.running.get(run.parentId) : undefined;
       if (this.closing || run.parentId && (!parent || !['running', 'waiting', 'paused'].includes(parent.info.state))) {
-        await this.shutdown(session); this.dispose(session); throw new Error('Parent or profile is stopping.');
+        await this.dispose(session); throw new Error('Parent or profile is stopping.');
       }
       // The finished record stays untouched (and resumable) unless the new one is saved.
       const { ended: _ended, cutOff: _cutOff, ...rest } = run;
@@ -508,7 +481,7 @@ export class Children {
       const prompt = cutOffChildren(text, cut);
       const info: RunInfo = { ...rest, state: 'running', started: Date.now(), parentSession: this.options.parentSession ?? run.parentSession,
         guidance: [...run.guidance, { text: prompt, date: Date.now(), state: 'queued', from: 'manager' }] };
-      try { this.save(info); } catch (error) { this.history.records.set(id, run); await this.shutdown(session); this.dispose(session); throw error; }
+      try { this.save(info); } catch (error) { this.history.records.set(id, run); await this.dispose(session); throw error; }
       const live: LiveRun = { session, info, updated: Date.now(), tools: new Map(), pendingReports: [], pendingGuidance: [] };
       this.running.set(id, live);
       this.launching--; reserved = false;

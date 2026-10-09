@@ -1,5 +1,5 @@
-import { Input, matchesKey, truncateToWidth, type Component, type Focusable } from '@earendil-works/pi-tui';
-import type { ExtensionUIContext } from '@earendil-works/pi-coding-agent';
+import { Input, matchesKey, truncateToWidth, type Component, type Focusable } from '@oh-my-pi/pi-tui';
+import type { ExtensionUIContext } from '@oh-my-pi/pi-coding-agent';
 
 const clean = (text: string) => text.replace(/[\x00-\x1f\x7f-\x9f]/g, ' ');
 interface Options {

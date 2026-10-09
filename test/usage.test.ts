@@ -3,8 +3,8 @@ import assert from 'node:assert/strict';
 import { appendFileSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { tmpdir } from 'node:os';
-import type { AssistantMessage } from '@earendil-works/pi-ai';
-import { SessionManager } from '@earendil-works/pi-coding-agent';
+import type { AssistantMessage } from '@oh-my-pi/pi-ai';
+import { SessionManager } from '@oh-my-pi/pi-coding-agent';
 import { emptyUsage, UsageLedger, summarizeUsage } from '../src/usage.ts';
 
 test('usage keeps roles/sessions separate, includes caches, and survives replay and a torn legacy record', () => {

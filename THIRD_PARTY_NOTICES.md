@@ -11,9 +11,16 @@ That upstream text is credited to Victor Taelin and is not relicensed by this
 repository's MIT grant for original implementation code. The complete recipe
 is linked upstream. This project is an independent Pi extension.
 
-## Pi
+## pi-optchat
 
-The extension uses Pi's host-provided SDK packages. Pi is distributed under the
-MIT license:
+This repository ports Jonas's pi-optchat (MIT) to oh-my-pi:
 
-https://github.com/earendil-works/pi
+https://github.com/jonaslsaa/pi-optchat
+
+## oh-my-pi
+
+The extension uses oh-my-pi's host-provided packages (`@oh-my-pi/pi-coding-agent`,
+`@oh-my-pi/pi-ai`, `@oh-my-pi/pi-tui`, `@oh-my-pi/pi-agent-core`). oh-my-pi is
+distributed under the MIT license:
+
+https://github.com/can1357/oh-my-pi

@@ -1,9 +1,9 @@
-import { matchesKey, sliceByColumn, truncateToWidth, visibleWidth, wrapTextWithAnsi, type Component, type Focusable } from '@earendil-works/pi-tui';
-import type { ExtensionContext } from '@earendil-works/pi-coding-agent';
+import { matchesKey, sliceByColumn, truncateToWidth, visibleWidth, wrapTextWithAnsi, type Component, type Focusable } from '@oh-my-pi/pi-tui';
+import type { ExtensionContext } from '@oh-my-pi/pi-coding-agent';
 import type { Children } from './agents.ts';
 import type { Memory } from './memory.ts';
 import { isActiveRun, isRunning } from './runs.ts';
-import type { Usage } from '@earendil-works/pi-ai';
+import type { Usage } from '@oh-my-pi/pi-ai';
 import { ranges, summarizeUsage, type UsageLedger, type UsageRange, type UsageRole } from './usage.ts';
 
 export const clean = (text: string) => text.replace(/[\x00-\x08\x0b-\x1f\x7f-\x9f]/g, '').replace(/\t/g, '  ');

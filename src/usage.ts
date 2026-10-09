@@ -1,8 +1,8 @@
 import { randomUUID } from 'node:crypto';
 import { appendFileSync, existsSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
-import type { AssistantMessage, Usage } from '@earendil-works/pi-ai';
-import type { SessionEntry } from '@earendil-works/pi-coding-agent';
+import type { AssistantMessage, Usage } from '@oh-my-pi/pi-ai';
+import type { SessionEntry } from '@oh-my-pi/pi-coding-agent';
 import { record } from './cache.ts';
 import { appendJson } from './store.ts';
 

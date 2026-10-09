@@ -1,1 +1,13 @@
-{"compilerOptions": {"target": "ES2024", "module": "NodeNext", "moduleResolution": "NodeNext", "strict": true, "noEmit": true, "allowImportingTsExtensions": true, "skipLibCheck": true, "types": ["node"]}, "include": ["src/**/*.ts", "test/**/*.ts"]}
+{
+  "compilerOptions": {
+    "target": "ES2024", "module": "NodeNext", "moduleResolution": "NodeNext", "strict": true, "noEmit": true,
+    "allowImportingTsExtensions": true, "skipLibCheck": true, "types": ["node", "bun"],
+    "paths": {
+      "@oh-my-pi/pi-coding-agent": ["./node_modules/@oh-my-pi/pi-coding-agent/dist/types/extensibility/legacy-pi-coding-agent-shim.d.ts"],
+      "@oh-my-pi/pi-ai": ["./node_modules/@oh-my-pi/pi-coding-agent/dist/types/extensibility/legacy-pi-ai-shim.d.ts"],
+      "@oh-my-pi/pi-tui": ["./node_modules/@oh-my-pi/pi-coding-agent/dist/types/extensibility/legacy-pi-tui-shim.d.ts"],
+      "typebox": ["./node_modules/@oh-my-pi/pi-coding-agent/dist/types/extensibility/legacy-typebox.d.ts"]
+    }
+  },
+  "include": ["src/**/*.ts", "test/**/*.ts"]
+}
